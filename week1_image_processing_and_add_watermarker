@@ -103,7 +103,7 @@ im=Image.open("Girl.png")
 txt=Image.new('RGBA',im.size,(0,0,0,0))
 fnt=ImageFont.truetype("STXINGKA.TTF",30)#加载本地字体
 d=ImageDraw.Draw(txt)
-d.text((txt.size[0]-385,txt.size[1]-80),"@Yulong",font=fnt,fill=(255,255,255,150))
+d.text((txt.size[0]-385,txt.size[1]-80),"@Yulong",font=fnt,fill=(0,0,0,150))
 out=Image.alpha_composite(im,txt)
 out.save("Yulong.png")
  
