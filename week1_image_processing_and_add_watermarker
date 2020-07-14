@@ -1,0 +1,109 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import copy
+wm=cv2.imread('week1_homework.png')
+wm=cv2.cvtColor(wm,cv2.COLOR_BGR2RGB)
+def rgb2gray(rgb):#转为gray图像
+    return np.dot(rgb[...,:3],[0.299,0.587,0.114])
+def isSpot(x,y,BWimg):#判断是不是斑点
+        radMax=15
+        Flag=0
+        for r in range(radMax,0,-1):
+            if  BWimg[x+r][y+r]*BWimg[x-r][y-r]*BWimg[x+r][y-r]*BWimg[x-r][y+r]:Flag=1
+            if Flag and BWimg[x+r][y+r]*BWimg[x-r][y-r]*BWimg[x+r][y-r]*BWimg[x-r][y+r]==0:
+                return True
+        return False
+def findSpot(x1,x2,y1,y2,BWimg):#寻找在给定区域内的斑点的坐标 
+    spotlist=[]
+    for i in range(x1,x2):
+        for j in range(y1,y2):
+            if BWimg[i][j]==1:continue
+            retrn=isSpot(i,j,BWimg)
+            if retrn:spotlist.append((i,j))
+    return spotlist
+(m,n,_)=wm.shape
+
+#给出一幅重度平滑处理的图片用来采集需要的位置的RGB数据
+kernel1=np.ones((39,39),np.float32)/39/39
+img_temp=cv2.filter2D(wm,-1,kernel1)
+
+#从肤色区域采样，取平均值
+sample1=np.zeros((1,1,3))#左边面颊
+for k in range(3):
+    for i in range(550,600):
+         for j in range(350,400):
+                sample1[0][0][k]=sample1[0][0][k]+wm[i][j][k]/2500.0
+sample2=np.zeros((1,1,3))#额头
+for k in range(3):
+    for i in range(50,100):
+         for j in range(400,450):
+                sample2[0][0][k]=sample2[0][0][k]+wm[i][j][k]/2500.0
+#做选取面部区域的模板
+mask1=np.ones((m,n,3),dtype='uint8')
+mask2=np.ones((m,n,3),dtype='uint8')
+black=np.zeros((1,1,3),dtype='uint8')
+
+for i in range(m):
+    for j in range(n):
+         if np.linalg.norm(wm[i][j]-sample1)>45:#可手动设定
+                mask1[i][j]=black
+for i in range(m):
+    for j in range(n):
+         if np.linalg.norm(wm[i][j]-sample2)>45 :#可手动设定
+                mask2[i][j]=black
+        
+#从模板mask1和mask2的灰度图中挑出斑点区域
+Bwimg1=rgb2gray(mask1)
+Bwimg2=rgb2gray(mask2)
+spots1=findSpot(15,900,50,680,Bwimg1)
+spots2=findSpot(15,600,150,650,Bwimg2)
+ 
+spots1.extend(spots2)
+#将原图中的斑点用重度平滑的图相应值代替
+dupli=copy.deepcopy(wm)
+for i in spots1:
+    dupli[i]=img_temp[i]
+    
+#给出一幅轻度平滑处理的图形，局部会用来当做最终的处理效果
+kernel2=np.ones((9,9),np.float32)/81
+img_mooth=cv2.filter2D(dupli,-1,kernel2)
+#从原图的灰度图中获取五官边缘并模糊化
+g=rgb2gray(wm)
+sobel_x=np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
+sobel_y=np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
+edgex=cv2.filter2D(g,-1,sobel_x)
+edgey=cv2.filter2D(g,-1,sobel_y)
+edge=edgex+edgey
+edge[edge<20]=0
+edge[edge>20]=255
+L=99
+kernel1=np.ones((L,L),np.float32)/L/L
+edge1=cv2.filter2D(edge,-1,kernel1)
+edge1[edge1<20]=1
+edge1[edge1>20]=0
+#从edgee1中获取待处理的部分
+mask=np.ones((m,n,3),dtype='uint8')
+for i in range (m):
+    for j in range(n):
+        if edge1[i,j]==0:
+            mask[i,j]=black
+#拼接图片          
+pic1=img_mooth*mask
+pic2=dupli*(1-mask)
+result=pic1+pic2
+plt.imshow(result)
+#保存图片
+plt.imsave("Girl.png",result)
+
+#添加水印
+#添加水印
+from PIL import Image, ImageDraw, ImageFont
+im=Image.open("Girl.png")
+txt=Image.new('RGBA',im.size,(0,0,0,0))
+fnt=ImageFont.truetype("STXINGKA.TTF",30)#加载本地字体
+d=ImageDraw.Draw(txt)
+d.text((txt.size[0]-385,txt.size[1]-80),"@Yulong",font=fnt,fill=(255,255,255,150))
+out=Image.alpha_composite(im,txt)
+out.save("Yulong.png")
+ 
