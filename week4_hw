@@ -1,0 +1,115 @@
+#导入数据
+import numpy as np
+import csv
+
+
+train = csv.reader(open('mnist_train.csv', 'r'))
+train_content = []
+for line in train:
+    train_content.append(line)
+
+test = csv.reader(open('mnist_test.csv', 'r'))
+test_content = []
+for line in test:
+    test_content.append(line)
+    
+    
+train_content = np.array(train_content, dtype=np.float32)
+test_content = np.array(test_content, dtype=np.float32)
+
+train_label = np.array(train_content[:, 0], dtype=np.int)
+train_x = train_content[:,1 :]
+test_label = np.array(test_content[:, 0], dtype=np.int)
+test_x = test_content[:, 1:]
+
+assert train_x.shape[1] == test_x.shape[1]
+print('Number of input is %d' % train_x.shape[1])
+num_input = train_x.shape[1]
+
+train_x = (train_x - 255/2) / 255
+test_x = (test_x - 255/2) / 255
+
+import torch
+train_x = torch.from_numpy(train_x)
+train_label = torch.from_numpy(train_label)
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+
+class nn_XML(nn.Module):
+    def __init__(self, num_in=784, num_out=10, hidden=[100, 30]):
+        super().__init__()
+        self.linear = nn.Sequential(nn.Linear(num_in, hidden[0], bias=True),
+                                    nn.Sigmoid(),
+                                    nn.BatchNorm1d(hidden[0]),
+                                    nn.Linear(hidden[0], hidden[1], bias=True),
+                                    nn.Sigmoid(),
+                                    nn.BatchNorm1d(hidden[1]),
+                                    nn.Linear(hidden[1], num_out, bias=True))
+        
+    def forward(self, input):
+        out = self.linear(input)
+        return out
+
+def init_weight(m):
+    name = m.__class__.__name__
+    if name.find('Linear') != -1:
+   # m.weight.data.normal_(0.01, 0.1) # 0.01这个参数需要注意
+        nn.init.uniform_(m.weight.data, a=-0.01, b=0.01)
+        nn.init.constant_(m.bias.data, 0.0)
+        
+epoch = 3000
+lr = 0.1
+device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+
+model = nn_XML().to(device)
+model.apply(init_weight)
+# print(model)
+# print(device)
+
+creation = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.5)
+
+for i in range(epoch):
+    model.zero_grad()
+    
+    train_x = train_x.to(device)
+    train_label = train_label.to(device)
+    
+    output = model(train_x)
+    loss = creation(output, train_label) # 顺序不要反了，否则出错
+    loss.backward()
+    
+    loss_ = loss.mean().item()
+    
+    optimizer.step()
+    
+    if i % 300 == 0:
+        predict = torch.argmax(output, dim=1)
+        assert predict.size() == train_label.size()
+        sum = 0.0
+        for j in range(predict.size()[0]):
+            if int(predict[j]) == int(train_label[j]):
+                sum += 1
+        print('Epoch: {:d},   Loss: {:0.5f},   Acc: {:0.3f}%'.format(i, loss_, sum / len(predict) * 100))
+        
+        
+        
+    输出：
+    
+Epoch: 0,   Loss: 2.30379,   Acc: 10.267%
+Epoch: 300,   Loss: 0.21678,   Acc: 94.152%
+Epoch: 600,   Loss: 0.09076,   Acc: 97.535%
+Epoch: 900,   Loss: 0.05244,   Acc: 98.717%
+Epoch: 1200,   Loss: 0.03196,   Acc: 99.365%
+Epoch: 1500,   Loss: 0.05551,   Acc: 98.330%
+Epoch: 1800,   Loss: 0.01341,   Acc: 99.913%
+Epoch: 2100,   Loss: 0.00891,   Acc: 99.975%
+Epoch: 2400,   Loss: 0.01485,   Acc: 99.842%
+Epoch: 2700,   Loss: 0.00798,   Acc: 99.972%
+        
+  
