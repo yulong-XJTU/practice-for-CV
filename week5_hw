@@ -1,0 +1,53 @@
+def distance(vecA,vecB):
+    dist=(vecA-vecB)*(vecA-vecB).T
+    return dist[0,0]
+def randCent(data,K):
+    n=np.shape(data)[3]#特征个数
+    centroids=np.mat(np.zeros((K,n)))
+    for j in range(n):
+        minJ=np.min(data[:,j])
+        rangeJ=np.max(data[:,j])-minJ
+        centroids[:,j]=minJ*np.mat(np.ones((K,1)))+np.random.rand(K,1)*rangeJ
+    return centroids
+def K_means(data,K,centroids):
+    m,n=np.shape(data)#样本个数和特征个数
+    subCenter=np.mat(np.zeros((m,2)))#初始化每个样本所属类别
+    change=True#判断是否需要重新计算聚类中心
+    while Change:
+        change=False
+        for i in range(m):
+            minDist=np.inf
+            mindex=0
+            for j in range(K):
+                #计算i和每个聚类中心的距离
+                dist=distance(data[i,],centroids[j,])
+                if dist<minDist:
+                    minDist=dist
+                    minIndex=j
+                if subCenter[i,0]!=minIndex:
+                    change=True
+                    subCenter[i,]=np.mat([minIndex,minDist])
+        #重新计算中心
+        for j in range(K):
+            sum_all=np.mat(np.zeros((1,n)))
+            r=0#每个类中的样本数
+            for i in range(m):
+                if subCenter[i,0]==j:
+                    sum_all+=data[i,]
+                    r+=1
+            for z in range(n):
+                try:
+                    centroids[j,z]=sum_all[0,z]/r
+                except:
+                    print("r is zero")
+    return subCenter
+def save_result(file_name,sourse):
+    m,n=np.shape(source)
+    f=open(file_name,"w")
+    for i in range(m):
+        tmp=[]
+        for j in range(n):
+            tmp.append(str(source[i,j]))
+        f.write("\t".join(tmp)+"\n")
+    f.close()
+ 
