@@ -1,0 +1,92 @@
+import torch
+from torch import nn, optim
+import torch.nn.functional as F
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from torchvision import datasets
+
+torch.manual_seed(1)#设置随机数种子
+batch_size=128
+learning_rate=1e-2
+num_epoches=10
+
+#加载数据
+train_data=datasets.MNIST(root='./mnist_data',train=True,transform=transforms.ToTensor())
+test_data=datasets.MNIST(root='./mnist_data',train=False,transform=transforms.ToTensor())
+
+train_loader=DataLoader(train_data,batch_size=batch_size,shuffle=True)
+test_loader=DataLoader(test_data,batch_size=batch_size,shuffle=False)
+
+class LeNet(nn.Module):
+   def __init__(self, in_dim, n_class):#28X28X1
+        super(LeNet,self).__init__()
+        self.conv=nn.Sequential(
+               nn.Conv2d(in_dim,6,3,stride=1,padding=1),#28x28
+               nn.ReLU(True),
+               nn.MaxPool2d(2,2),#14x14
+               nn.Conv2d(6,16,5,stride=1,padding=0),#10*10*16
+               nn.ReLU(True),nn.MaxPool2d(2,2)#5x5x16
+             )
+        self.fc=nn.Sequential(nn.Linear(400,120),
+                    nn.Linear(120,84),
+                    nn.Linear(84,n_class))
+   def forward(self,x):
+            out=self.conv(x)
+            out=out.view(out.size(0),400)
+            out=self.fc(out)
+            return out
+model=LeNet(1,10)
+
+criterion=nn.CrossEntropyLoss()
+optimizer=optim.SGD(model.parameters(),lr=learning_rate)
+for epoch in range(num_epoches):
+    running_loss=0.0
+    running_acc=0.0
+    for i,data in enumerate(train_loader,1):
+        img,label=data
+        img=Variable(img)
+        label=Variable(label)
+        out=model(img)
+        loss=criterion(out,label)
+        running_loss+=loss.data*label.size(0)
+        _,pred=torch.max(out,1)
+        num_correct=(pred==label).sum()
+        running_acc+=num_correct.data
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+    print('train{} epoch, Loss:{:.6f},Acc:{:.6f}'.format(epoch+1,running_loss/(len(train_data)),running_acc/(len(train_data))))
+    
+   #在测试集测试识别率
+model.eval()
+eval_loss=0
+eval_acc=0
+for data in test_loader:
+    img,label=data
+    img=Variable(img,volatile=True)
+    out=model(img)
+    loss=criterion(out,label)
+    eval_loss+=loss.data*label.size(0)
+    _,pred=torch.max(out,1)
+    num_correct=(pred==label).sum()
+    eval_acc+=num_correct.data
+print("test loss:{:.6f},Acc:{:.6f}".format(eval_loss/(len(test_data)),eval_acc*1.0/(len(test_data))))
+
+
+
+train1 epoch, Loss:2.285777,Acc:0.221550
+train2 epoch, Loss:1.370801,Acc:0.636100
+train3 epoch, Loss:0.411638,Acc:0.878833
+train4 epoch, Loss:0.294589,Acc:0.912050
+train5 epoch, Loss:0.231723,Acc:0.930100
+train6 epoch, Loss:0.188472,Acc:0.942783
+train7 epoch, Loss:0.158941,Acc:0.952733
+train8 epoch, Loss:0.139249,Acc:0.958167
+train9 epoch, Loss:0.125954,Acc:0.961900
+train10 epoch, Loss:0.115721,Acc:0.965033
+
+
+test loss:0.101993,Acc:0.967800
